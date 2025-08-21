@@ -1,0 +1,22 @@
+name: List eBPF Hooks
+
+on:
+  workflow_dispatch:  # run manually from Actions tab
+
+jobs:
+  list-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show available syscalls (from /proc/kallsyms)
+        run: |
+          echo "Listing kernel syscalls available for kprobes:"
+          cat /proc/kallsyms | grep ' sys_' | head -20
+          echo
+          echo "➡️ These are the same hooks we used for file, process, and network tracing."
+      
+      - name: Show available tracepoints
+        run: |
+          echo "Listing tracepoints under /sys/kernel/debug/tracing/events:"
+          ls /sys/kernel/debug/tracing/events | head -20
+          echo
+          echo "➡️ These tracepoints are stable kernel events you can attach to."
