@@ -1,7 +1,7 @@
 # 🧑‍💻 Rootconf 2025 Workshop: **Detecting Supply Chain Attacks at Runtime with eBPF**
 
-Welcome! In this workshop, you’ll learn how to detect **supply chain attacks** using **eBPF** — by tracing real runtime behaviors that static scanners miss.
- 
+Welcome! In this workshop, you’ll learn how to detect **supply chain attacks** using **eBPF** — by tracing runtime behaviors that static scanners miss.
+
 No kernel or eBPF experience needed. Just follow along.
 
 ---
@@ -20,7 +20,7 @@ No kernel or eBPF experience needed. Just follow along.
 
 ```
 rootconf25-training-lab/
-├── .github/workflows/hello-world.yml  # CI pipeline to detect attacks
+├── .github/workflows/hello-world.yml  # Main CI workflow for detectors
 ├── connect_tracer.py                  # Outbound connections tracer
 ├── execve_tracer.py                   # Suspicious binary execution tracer
 ├── openat_tracer.py                   # File access tracer (.env etc)
@@ -32,96 +32,72 @@ rootconf25-training-lab/
 
 ## 📝 Prerequisites
 
-* Linux VM (Ubuntu 20.04 preferred)
-* Python 3.8+, clang, bcc installed
-* Docker installed (for CI integration)
 * GitHub account
+* Fork this repository into your own GitHub account
+
+That’s it — no VM setup, no Docker install. Everything runs in **GitHub Actions (`ubuntu-latest`)**.
 
 ---
 
-## 🏁 Step 1: Environment Setup (10 mins)
+## 🏁 Step 1: Fork & Trigger Workflow (5 mins)
 
-```bash
-git clone https://github.com/rohitcoder/rootconf25-training-lab.git
-cd rootconf25-training-lab
-```
+1. Fork this repo to your GitHub account
+2. Clone it locally (optional):
 
-> ✅ Ensure you have Docker, bcc, and clang installed.
-> You can follow the [setup script from here](https://github.com/rohitcoder/rootconf-25-supplychain/blob/main/setup.sh).
+   ```bash
+   git clone https://github.com/<your-username>/rootconf25-training-lab.git
+   cd rootconf25-training-lab
+   ```
+3. Push a dummy commit to trigger the workflow:
+
+   ```bash
+   git commit --allow-empty -m "Trigger CI"
+   git push
+   ```
+
+Open the **Actions** tab in your repo to see the workflow run.
 
 ---
 
-## 🔍 Step 2: Detect Sensitive File Access (.env) (20 mins)
+## 🔍 Step 2: Detect Sensitive File Access (.env) (15 mins)
 
-Run the tracer:
+We’ll use `openat_tracer.py` to catch access to sensitive files like `.env`.
 
-```bash
-sudo python3 openat_tracer.py
-```
-
-In another terminal, simulate file access:
-
-```bash
-echo "SECRET=abc" > .env
-cat .env
-```
-
-✅ You should see a log when `.env` is accessed.
+Check **hello-world.yml** → it already runs this tracer. Logs will show whenever `.env` or `.aws` files are accessed.
 
 🎯 **Goal:** Understand syscalls, tracepoints, and live observability.
 
 ---
 
-## 🌐 Step 3: Detect Outbound Connections (20 mins)
+## 🌐 Step 3: Detect Outbound Connections (15 mins)
 
-Run outbound tracer:
+Next, the workflow runs `connect_tracer.py` to trace outbound connections.
 
-```bash
-sudo python3 connect_tracer.py
-```
+When the workflow makes a `curl https://google.com` request, you’ll see the tracer log it.
 
-Trigger outbound connection:
-
-```bash
-curl https://google.com
-```
-
-✅ You'll see connection attempts being traced.
-
-🎯 **Goal:** Catch suspicious outbound traffic in real-time.
+🎯 **Goal:** Catch suspicious outbound traffic in real time.
 
 ---
 
 ## 🏴‍☠️ Step 4: Simulate Supply Chain Exfiltration (15 mins)
 
-Run attack simulation:
+The workflow will automatically run:
 
 ```bash
 bash simulate_exfil.sh
 ```
 
-✅ Your tracers will detect secret access + exfil attempt.
+This simulates an attacker stealing secrets. The tracers from earlier steps will catch both file access and the exfil attempt.
 
-🎯 **Goal:** Visualize supply chain attack flow.
+🎯 **Goal:** Visualize a full supply chain attack flow.
 
 ---
 
-## 🗡️ Step 5: Detect Suspicious Binary Execution (/tmp backdoors) (15 mins)
+## 🗡️ Step 5: Detect Suspicious Binary Execution (15 mins)
 
-Run execve tracer:
+The workflow also runs `execve_tracer.py`.
 
-```bash
-sudo python3 execve_tracer.py
-```
-
-Test suspicious exec:
-
-```bash
-cp /bin/ls /tmp/ls
-/tmp/ls
-```
-
-✅ You'll get alerts for binaries running from `/tmp`.
+It copies `/bin/ls` into `/tmp` and executes it. Logs will show alerts for binaries executed from `/tmp`.
 
 🎯 **Goal:** Understand process execution tracing for malware detection.
 
@@ -129,59 +105,48 @@ cp /bin/ls /tmp/ls
 
 ## 🤖 Step 6: CI Integration with eBPF Detection (30 mins)
 
-We’ll now run a **GitHub Actions pipeline** that:
+Now you’ll see everything tied together in **hello-world.yml**:
 
-* Starts a detector container (built from [rootconf-25-supplychain](https://github.com/rohitcoder/rootconf-25-supplychain))
-* Simulates exfil attack
-* Detects runtime behavior using eBPF
-* Prints logs, fails build (optional)
+* Starts tracers inside GitHub Actions
+* Simulates an attack
+* Logs detections in the Actions console
+* Can optionally **fail the build** on detection
 
-To trigger:
+Trigger again with:
 
 ```bash
-# Make a dummy commit to run the workflow
-git commit --allow-empty -m "Trigger CI"
+git commit --allow-empty -m "Rerun workflow"
 git push
 ```
 
-
-✅ Workflow will run `.github/workflows/hello-world.yml` and show detections.
-
-🎯 **Goal:** See runtime detection working inside CI pipelines.
+🎯 **Goal:** See runtime detection inside CI pipelines.
 
 ---
 
 ## 🛠️ Step 7: Hack Time — Customize Detections (30 mins)
 
-Now you will extend the detectors.
+Your turn to extend the detectors by editing `.github/workflows/hello-world.yml`.
 
-### Challenges:
+### Challenges
 
-* [ ] Modify `hello-world.yml` to send a Slack alert when detection happens.
-* [ ] Filter outbound connections to ignore github.com IPs.
-* [ ] Add `.pem` and `.aws` files to sensitive file detection.
-* [ ] Detect if a binary from `/tmp` spawns `curl` (process chain).
-* [ ] Bonus: Modify `supplychain-detect.py` and build your own Docker image.
-
-
-
-<img width="412" alt="image" src="https://github.com/user-attachments/assets/13964e30-c41c-4973-80b1-f1f8a4b50dfe" />
-
-Hints:
-
-* Detector code → [supplychain-detect.py](https://github.com/rohitcoder/rootconf-25-supplychain/blob/main/supplychain-detect.py)
-* Rebuild Docker image if you customize detections.
+* [ ] Add a step to send a Slack alert when detection happens
+* [ ] Ignore outbound connections to `github.com`
+* [ ] Extend sensitive file list to include `.pem` and `.aws`
+* [ ] Detect if a binary from `/tmp` spawns `curl` (process chain)
+* [ ] Bonus: tweak `supplychain-detect.py` and rebuild the image
 
 🎯 **Goal:** Adapt detectors to real attacker behaviors.
 
 ---
 
-## 🔄 Step 8: How This Extends to Jenkins / GitLab / Azure (10 mins)
+## 🔄 Step 8: Extending Beyond GitHub (10 mins)
 
-We’ll discuss:
+Quick discussion on:
 
-* Using eBPF detectors in self-hosted runners
-* Sidecar pattern for supply chain detection
-* Minimal changes to reuse across CI/CD systems
+* Using self-hosted runners in GitHub Actions
+* Reusing the same detectors in Jenkins, GitLab, Azure Pipelines
+* Sidecar pattern for runtime monitoring
 
----
+👉 Docs if you want to try self-hosted: [GitHub Runner Guide](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners)
+
+Do you want me to also prep a **ready-to-run `hello-world.yml`** that already includes all steps (file access, connect, exec, simulate) so participants just fork and push to see detections?
