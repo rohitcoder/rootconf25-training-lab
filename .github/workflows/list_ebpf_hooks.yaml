@@ -17,6 +17,6 @@ jobs:
       - name: Show available tracepoints
         run: |
           echo "Listing tracepoints under /sys/kernel/debug/tracing/events:"
-          ls /sys/kernel/debug/tracing/events | head -20
+          sudo ls /sys/kernel/debug/tracing/events | head -20
           echo
           echo "➡️ These tracepoints are stable kernel events you can attach to."
