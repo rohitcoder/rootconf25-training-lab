@@ -1,7 +1,7 @@
 # 🧑‍💻 Rootconf 2025 Workshop: **Detecting Supply Chain Attacks at Runtime with eBPF**
 
 Welcome! In this workshop, you’ll learn how to detect **supply chain attacks** using **eBPF** — by tracing real runtime behaviors that static scanners miss.
-
+ 
 No kernel or eBPF experience needed. Just follow along.
 
 ---
