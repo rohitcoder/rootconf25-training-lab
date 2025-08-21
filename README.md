@@ -53,7 +53,110 @@ That’s it. Everything else runs inside GitHub Actions.
 
 You’ll see the workflow run in **Actions**.
 
+## Understanding Syscall Symbols, Kprobes, and Tracepoints
+
+When we write eBPF programs, we need to know where to attach them. These attachment points are called hooks. The two most common ways are **kprobes** (on kernel functions) and **tracepoints** (on predefined kernel events).
+
+### Syscall Symbols (via Kprobes)
+
+A syscall is how a program asks the Linux kernel to do something, like open a file or start a process. For example, when you run `ls`, under the hood it calls the `execve` syscall to create a new process.
+
+Kprobes let us attach eBPF programs to kernel functions directly. You can discover available functions by looking in `/proc/kallsyms`. For example:
+
+```
+ffffffff8118c920 T __x64_sys_execve
+ffffffff8118c930 T __x64_sys_openat
+```
+
+* `__x64_sys_execve` is the function called when a new process is created.
+* `__x64_sys_openat` is the function used when opening files.
+
+With a kprobe, you can attach to these functions. For instance, to detect whenever a new process starts:
+
+```c
+int kprobe____x64_sys_execve(struct pt_regs *ctx) {
+    bpf_trace_printk("Process started (kprobe)\n");
+    return 0;
+}
+```
+
+The drawback is that these function names can vary between kernel versions, so kprobes can break if you upgrade the kernel.
+
 ---
+
+### Tracepoints
+
+Tracepoints are predefined events added by kernel developers for observability. They are stable across kernel versions and safer to use long-term. You can find them under:
+
+```
+/sys/kernel/debug/tracing/events/
+```
+
+For process execution, common tracepoints are:
+
+```
+syscalls/sys_enter_execve
+syscalls/sys_exit_execve
+```
+
+Using a tracepoint, you can log every command that gets executed:
+
+```c
+TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
+    bpf_trace_printk("Command executed (tracepoint): %s\n", args->filename);
+    return 0;
+}
+```
+
+Tracepoints don’t give you access to every kernel function like kprobes do, but they are stable and portable.
+
+---
+
+### Putting It Together
+
+If malware drops a file into `/tmp` and runs it:
+
+* A **kprobe** on `__x64_sys_execve` would catch the raw function call that launches the process.
+* A **tracepoint** on `syscalls:sys_enter_execve` would catch the stable event that indicates a process execution.
+
+Both approaches can detect the behavior, but the choice depends on your needs.
+
+* Use kprobes when you need flexibility and access to low-level kernel internals.
+* Use tracepoints when you need reliability across different Linux versions.
+
+Here’s a simple text diagram you can drop directly into your workshop docs. It shows how syscalls work, and where **kprobes** and **tracepoints** hook in:
+
+---
+
+## Where Kprobes and Tracepoints Hook
+
+```
++-------------------------+        User space
+|   User program (ls)     |
++-------------------------+
+              |
+              |   makes a syscall (execve)
+              v
++-------------------------+        Kernel entry
+|   Syscall interface     |  <---- Tracepoint: sys_enter_execve
++-------------------------+
+              |
+              v
++-------------------------+        Kernel space
+|  __x64_sys_execve()     |  <---- Kprobe hooks here
++-------------------------+
+              |
+              v
++-------------------------+        
+|   Kernel does the work  |
++-------------------------+
+```
+
+* The user program runs `ls`.
+* This calls the syscall **execve** to start a process.
+* **Tracepoint** (`sys_enter_execve`) is triggered at the syscall entry.
+* **Kprobe** can attach directly to the kernel function (`__x64_sys_execve`).
+
 
 ## 🔍 Step 2: Detect Sensitive File Access
 
