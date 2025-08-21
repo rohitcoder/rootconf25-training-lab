@@ -1,22 +1,54 @@
 name: List eBPF Hooks
 
 on:
-  workflow_dispatch:  # run manually from Actions tab
+  workflow_dispatch: # run manually from Actions tab
 
 jobs:
-  list-hooks:
+  list-ebpf-hooks:
     runs-on: ubuntu-latest
     steps:
-      - name: Show available syscalls (from /proc/kallsyms)
+      - name: Show available syscalls (kprobe symbols)
         run: |
-          echo "Listing kernel syscalls available for kprobes:"
-          cat /proc/kallsyms | grep ' sys_'
+          echo "Listing kernel syscall symbols (grep ' sys_')..."
+          cat /proc/kallsyms | grep ' sys_' | head -30
           echo
-          echo "➡️ These are the same hooks we used for file, process, and network tracing."
-      
-      - name: Show available tracepoints
+          echo "These are kernel symbols you can attach kprobes to."
+          echo "   Example: __x64_sys_execve (process execution)"
+          echo
+
+      - name: Show available tracepoint categories
         run: |
-          echo "Listing tracepoints under /sys/kernel/debug/tracing/events:"
-          sudo ls /sys/kernel/debug/tracing/events | head -20
+          echo "Listing tracepoint categories under /sys/kernel/debug/tracing/events..."
+          sudo ls /sys/kernel/debug/tracing/events | head -30
           echo
-          echo "➡️ These tracepoints are stable kernel events you can attach to."
+          echo "Each category has events inside, e.g. syscalls/, sched/, net/, block/."
+          echo
+
+      - name: Show syscall tracepoints for execve
+        run: |
+          echo "Listing execve-related tracepoints..."
+          sudo ls /sys/kernel/debug/tracing/events/syscalls | grep execve || true
+          echo
+          echo "Common ones: sys_enter_execve, sys_exit_execve"
+          echo
+
+      - name: Show execve-related kernel symbols (for kprobes)
+        run: |
+          echo "Searching /proc/kallsyms for execve kernel symbols..."
+          cat /proc/kallsyms | grep execve || true
+          echo
+          echo "Example kprobe target: __x64_sys_execve"
+          echo
+
+      - name: Explain difference
+        run: |
+          echo "====================================================="
+          echo "KPROBES vs TRACEPOINTS"
+          echo
+          echo "- Kprobes hook raw kernel symbols (flexible, kernel-specific)."
+          echo "- Tracepoints hook stable events (portable, safe for long-term)."
+          echo
+          echo "Examples:"
+          echo "  Kprobe target    -> __x64_sys_execve"
+          echo "  Tracepoint event -> syscalls:sys_enter_execve"
+          echo "====================================================="
