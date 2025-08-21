@@ -119,7 +119,40 @@ git push
 
 ---
 
-## 🛠️ Step 7: Hack Time — Customize Detections
+## 🔍 Step 7: Exploring Available Hooks
+
+Want to go beyond the examples? You can discover which kernel functions are available to attach eBPF programs to.
+
+### 1. List Kernel Functions (for kprobes)
+
+```bash
+cat /proc/kallsyms | grep ' sys_'
+```
+
+This shows all kernel syscalls (like `sys_openat`, `sys_execve`, `sys_connect`).
+➡️ These are the same hooks we used for file, process, and network tracing.
+
+### 2. Check Tracepoints
+
+```bash
+ls /sys/kernel/debug/tracing/events
+```
+
+Tracepoints are stable kernel events (e.g., `syscalls/sys_enter_openat`).
+➡️ They’re safer for long-term use than raw function names.
+
+### 3. Explore BCC Tool Examples
+
+```bash
+git clone https://github.com/iovisor/bcc.git
+cd bcc/tools
+ls
+```
+
+You’ll see ready-to-use examples like `execsnoop`, `opensnoop`, `tcpconnect`.
+➡️ These are great starting points for your own detectors.
+
+## 🛠️ Step 8: Hack Time — Customize Detections
 
 Edit **`.github/workflows/hello-world.yml`** to extend detectors:
 
@@ -131,9 +164,7 @@ Edit **`.github/workflows/hello-world.yml`** to extend detectors:
 
 🎯 **Goal:** Adapt detectors to real attacker behaviors.
 
----
-
-## 🔄 Step 8: Beyond GitHub Actions
+## 🔄 Step 9: Beyond GitHub Actions
 
 We’ll close with how this approach extends to:
 
