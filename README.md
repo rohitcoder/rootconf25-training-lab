@@ -17,41 +17,7 @@ No kernel or eBPF experience needed. Everything runs in **GitHub Actions (`ubunt
 
 ---
 
-## 🗂 Repo Structure
 
-```
-rootconf25-training-lab/
-├── .github/workflows/hello-world.yml  # Main GitHub Actions workflow
-├── connect_tracer.py                  # Outbound connections tracer
-├── execve_tracer.py                   # Suspicious binary execution tracer
-├── openat_tracer.py                   # File access tracer
-├── simulate_exfil.sh                  # Simulates secret exfiltration
-├── troubleshoot.md                    # Common issues & solutions
-```
-
----
-
-## 📝 Prerequisites
-
-* GitHub account
-* Fork this repository
-
-That’s it. Everything else runs inside GitHub Actions.
-
----
-
-## 🏁 Step 1: Fork & Trigger Workflow
-
-1. Fork this repo into your GitHub account
-2. Go to **Actions** tab → enable workflows
-3. Trigger with a dummy commit:
-
-   ```bash
-   git commit --allow-empty -m "Trigger workflow"
-   git push
-   ```
-
-You’ll see the workflow run in **Actions**.
 
 ## Understanding Syscall Symbols, Kprobes, and Tracepoints
 
@@ -157,6 +123,41 @@ Here’s a simple text diagram you can drop directly into your workshop docs. It
 * **Tracepoint** (`sys_enter_execve`) is triggered at the syscall entry.
 * **Kprobe** can attach directly to the kernel function (`__x64_sys_execve`).
 
+## 🗂 Repo Structure
+
+```
+rootconf25-training-lab/
+├── .github/workflows/hello-world.yml  # Main GitHub Actions workflow
+├── connect_tracer.py                  # Outbound connections tracer
+├── execve_tracer.py                   # Suspicious binary execution tracer
+├── openat_tracer.py                   # File access tracer
+├── simulate_exfil.sh                  # Simulates secret exfiltration
+├── troubleshoot.md                    # Common issues & solutions
+```
+
+---
+
+## 📝 Prerequisites
+
+* GitHub account
+* Fork this repository
+
+That’s it. Everything else runs inside GitHub Actions.
+
+---
+
+## 🏁 Step 1: Fork & Trigger Workflow
+
+1. Fork this repo into your GitHub account
+2. Go to **Actions** tab → enable workflows
+3. Trigger with a dummy commit:
+
+   ```bash
+   git commit --allow-empty -m "Trigger workflow"
+   git push
+   ```
+
+You’ll see the workflow run in **Actions**.
 
 ## 🔍 Step 2: Detect Sensitive File Access
 
