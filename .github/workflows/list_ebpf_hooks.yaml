@@ -10,7 +10,7 @@ jobs:
       - name: Show available syscalls (from /proc/kallsyms)
         run: |
           echo "Listing kernel syscalls available for kprobes:"
-          cat /proc/kallsyms | grep ' sys_' | head -20
+          cat /proc/kallsyms | grep ' sys_'
           echo
           echo "➡️ These are the same hooks we used for file, process, and network tracing."
       
