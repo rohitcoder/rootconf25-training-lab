@@ -1,23 +1,24 @@
-name: Test eBPF openat/openat2 Probe
+name: Test eBPF openat
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # run manually from GitHub Actions tab
 
 jobs:
-  ebpf-test:
+  ebpf-test-openat:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-      - name: Install dependencies
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (BCC, Python, kernel headers)
         run: |
           sudo apt-get update
-          sudo apt-get install -y bpfcc-tools linux-headers-$(uname -r) python3-bpfcc
+          sudo apt-get install -y bpfcc-tools python3-bpfcc linux-headers-$(uname -r)
 
-      - name: Mount debugfs
-        run: |
-          sudo mount -t debugfs none /sys/kernel/debug || true
-
-      - name: Run eBPF openat test
+      - name: Run eBPF script (trace openat/openat2)
         run: |
           cat > openat_probe.py <<'EOF'
           from bcc import BPF
@@ -54,26 +55,14 @@ jobs:
           }
           """
 
-          b = BPF(text=bpf_code, cflags=["-Wno-duplicate-decl-specifier"])
-          print("🚀 Tracing openat/openat2 syscalls...")
+          b = BPF(text=bpf_code)
+          print("Tracing ALL openat/openat2 file opens... Ctrl+C to stop.")
 
+          # Run for 20 seconds to capture events
           try:
-              while True:
-                  (task, pid, cpu, flags, ts, msg) = b.trace_fields()
-                  print(f"{ts}: {msg}")
+              b.trace_print(duration=20)
           except KeyboardInterrupt:
-              print("🛑 Stopped tracing.")
+              pass
           EOF
 
-          # Run for 15s so you can see logs
-          (sudo timeout 15s python3 openat_probe.py &) 
-
-          # Give probe time to attach
-          sleep 3
-
-          # Trigger some openat/openat2 calls
-          echo "foo=bar" > .env
-          cat .env >/dev/null
-          ls -l >/dev/null
-
-          wait || true
+          sudo python3 openat_probe.py
