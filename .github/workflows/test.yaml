@@ -1,18 +1,18 @@
-name: Test eBPF openat
+name: eBPF Openat Trace
 
 on:
   workflow_dispatch:
 
 jobs:
-  ebpf-test-openat:
+  trace-openat:
     runs-on: ubuntu-latest
     steps:
-      - name: Install BCC
+      - name: Install BCC + dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bpfcc-tools python3-bpfcc linux-headers-$(uname -r)
 
-      - name: Run eBPF script (trace openat/openat2)
+      - name: Run eBPF tracer
         run: |
           cat > openat_probe.py <<'EOF'
           from bcc import BPF
@@ -62,7 +62,7 @@ jobs:
 
           sudo python3 openat_probe.py
 
-      - name: Generate test file access
+      - name: Generate test file opens
         run: |
           echo "hello" > test.txt
           cat test.txt
