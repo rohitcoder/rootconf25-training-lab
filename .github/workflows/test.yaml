@@ -32,9 +32,7 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0) {
-                  // printk: allow only one %s at a time
-                  bpf_trace_printk("[OPENAT] proc=%s\n", comm);
-                  bpf_trace_printk("          file=%s\n", fname);
+                  bpf_trace_printk("[OPENAT] proc=%s file=%s\\n", comm, fname);
               }
               return 0;
           }
@@ -49,15 +47,14 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0) {
-                  bpf_trace_printk("[OPENAT2] proc=%s\n", comm);
-                  bpf_trace_printk("           file=%s\n", fname);
+                  bpf_trace_printk("[OPENAT2] proc=%s file=%s\\n", comm, fname);
               }
               return 0;
           }
           """
 
           b = BPF(text=bpf_code)
-          print("Tracing ALL openat/openat2 syscalls... for 15s")
+          print("Tracing ALL openat/openat2 syscalls for 15s...")
           b.trace_print(duration=15)
           EOF
 
