@@ -1,4 +1,4 @@
-name: Test eBPF Probe
+name: Test eBPF openat/openat2 Probe
 
 on:
   workflow_dispatch:
@@ -17,29 +17,63 @@ jobs:
         run: |
           sudo mount -t debugfs none /sys/kernel/debug || true
 
-      - name: Run eBPF execve test
+      - name: Run eBPF openat test
         run: |
-          cat > exec_probe.py <<'EOF'
+          cat > openat_probe.py <<'EOF'
           from bcc import BPF
 
           bpf_code = """
           #include <uapi/linux/ptrace.h>
-          TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
-              char comm[16];
+          #include <linux/sched.h>
+          #include <linux/limits.h>
+
+          TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
+              char comm[TASK_COMM_LEN] = {};
+              char fname[PATH_MAX] = {};
+
               bpf_get_current_comm(&comm, sizeof(comm));
-              bpf_trace_printk("[EXECVE] %s\\n", comm);
+              int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
+
+              if (ret > 0) {
+                  bpf_trace_printk("[OPENAT] %s opened %s\\n", comm, fname);
+              }
+              return 0;
+          }
+
+          TRACEPOINT_PROBE(syscalls, sys_enter_openat2) {
+              char comm[TASK_COMM_LEN] = {};
+              char fname[PATH_MAX] = {};
+
+              bpf_get_current_comm(&comm, sizeof(comm));
+              int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
+
+              if (ret > 0) {
+                  bpf_trace_printk("[OPENAT2] %s opened %s\\n", comm, fname);
+              }
               return 0;
           }
           """
-          b = BPF(text=bpf_code)
-          print("🚀 Tracing execve...")
-          while True:
-              (task, pid, cpu, flags, ts, msg) = b.trace_fields()
-              print(f"{ts}: {msg}")
+
+          b = BPF(text=bpf_code, cflags=["-Wno-duplicate-decl-specifier"])
+          print("🚀 Tracing openat/openat2 syscalls...")
+
+          try:
+              while True:
+                  (task, pid, cpu, flags, ts, msg) = b.trace_fields()
+                  print(f"{ts}: {msg}")
+          except KeyboardInterrupt:
+              print("🛑 Stopped tracing.")
           EOF
 
-          # Run for 10s, trigger some execs
-          (sudo timeout 10s python3 exec_probe.py &) 
-          sleep 2
-          ls /bin >/dev/null
-          echo "done"
+          # Run for 15s so you can see logs
+          (sudo timeout 15s python3 openat_probe.py &) 
+
+          # Give probe time to attach
+          sleep 3
+
+          # Trigger some openat/openat2 calls
+          echo "foo=bar" > .env
+          cat .env >/dev/null
+          ls -l >/dev/null
+
+          wait || true
