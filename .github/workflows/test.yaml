@@ -32,7 +32,8 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0) {
-                  bpf_trace_printk("[OPENAT] proc=%s file=%s\\n", comm, fname);
+                  bpf_trace_printk("[OPENAT] proc=%s\\n", comm);
+                  bpf_trace_printk("         file=%s\\n", fname);
               }
               return 0;
           }
@@ -47,7 +48,8 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0) {
-                  bpf_trace_printk("[OPENAT2] proc=%s file=%s\\n", comm, fname);
+                  bpf_trace_printk("[OPENAT2] proc=%s\\n", comm);
+                  bpf_trace_printk("          file=%s\\n", fname);
               }
               return 0;
           }
