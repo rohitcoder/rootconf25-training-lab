@@ -1,0 +1,47 @@
+name: Run eBPF Trace
+
+on:
+  workflow_dispatch:   # Trigger manually from GitHub Actions tab
+
+jobs:
+  ebpf-trace:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (BCC, Python, headers)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bpfcc-tools linux-headers-$(uname -r) python3-bpfcc
+
+      - name: Run eBPF Python script
+        run: |
+          cat > trace_connect.py <<'EOF'
+          from bcc import BPF
+
+          bpf_code = """
+          #include <uapi/linux/ptrace.h>
+          #include <linux/sched.h>
+          #include <linux/net.h>
+
+          int trace_connect(struct pt_regs *ctx) {
+              u32 pid = bpf_get_current_pid_tgid() >> 32;
+              char comm[16];
+              bpf_get_current_comm(&comm, sizeof(comm));
+
+              bpf_trace_printk("CONNECT: PID %d (%s) is making outbound connection\\n", pid, comm);
+              return 0;
+          }
+          """
+
+          b = BPF(text=bpf_code)
+          b.attach_kprobe(event="__x64_sys_connect", fn_name="trace_connect")
+          print("Tracing connect... Ctrl+C to exit.")
+          b.trace_print()
+          EOF
+
+          sudo python3 trace_connect.py
