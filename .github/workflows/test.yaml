@@ -1,97 +1,45 @@
-name: Test eBPF .env Probe
+name: Test eBPF Probe
 
 on:
-  workflow_dispatch:   # Run manually from GitHub Actions tab
+  workflow_dispatch:
 
 jobs:
-  ebpf-test-env:
+  ebpf-test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install dependencies (BCC, Python, kernel headers)
+      - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bpfcc-tools linux-headers-$(uname -r) python3-bpfcc
 
-      - name: Create and run eBPF .env test script
+      - name: Mount debugfs
         run: |
-          cat > env_probe.py <<'EOF'
+          sudo mount -t debugfs none /sys/kernel/debug || true
+
+      - name: Run eBPF execve test
+        run: |
+          cat > exec_probe.py <<'EOF'
           from bcc import BPF
 
           bpf_code = """
           #include <uapi/linux/ptrace.h>
-          #include <linux/sched.h>
-
-          static __inline int endswith_env(const char *fname) {
-              #pragma unroll
-              for (int i = 4; i < 256; i++) {
-                  if (fname[i] == '\\0') {
-                      if (fname[i-1] == 'v' &&
-                          fname[i-2] == 'n' &&
-                          fname[i-3] == 'e' &&
-                          fname[i-4] == '.') {
-                          return 1;
-                      } else {
-                          return 0;
-                      }
-                  }
-              }
-              return 0;
-          }
-
-          TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
-              char comm[16] = {};
-              char fname[256] = {};
-
+          TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
+              char comm[16];
               bpf_get_current_comm(&comm, sizeof(comm));
-              int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
-
-              if (ret > 0 && endswith_env(fname)) {
-                  bpf_trace_printk("[.env READ] Process: %s File: %s\\n", comm, fname);
-              }
-              return 0;
-          }
-
-          TRACEPOINT_PROBE(syscalls, sys_enter_openat2) {
-              char comm[16] = {};
-              char fname[256] = {};
-
-              bpf_get_current_comm(&comm, sizeof(comm));
-              int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
-
-              if (ret > 0 && endswith_env(fname)) {
-                  bpf_trace_printk("[.env READ] Process: %s File: %s\\n", comm, fname);
-              }
+              bpf_trace_printk("[EXECVE] %s\\n", comm);
               return 0;
           }
           """
-
-          b = BPF(text=bpf_code, cflags=["-Wno-duplicate-decl-specifier"])
-
-          print("🚀 Tracing ONLY .env file opens (openat & openat2 tracepoints)...")
-
-          try:
-              # print events to stdout so GitHub Actions captures them
-              while True:
-                  (task, pid, cpu, flags, ts, msg) = b.trace_fields()
-                  print(f"{ts}: {msg}")
-          except KeyboardInterrupt:
-              print("🛑 Stopped tracing.")
+          b = BPF(text=bpf_code)
+          print("🚀 Tracing execve...")
+          while True:
+              (task, pid, cpu, flags, ts, msg) = b.trace_fields()
+              print(f"{ts}: {msg}")
           EOF
 
-          # Run probe in foreground for 15s so logs are visible
-          sudo timeout 15s python3 env_probe.py &
-
-          # Give probe a moment to attach
-          sleep 3
-
-          # Trigger a .env file open
-          echo "SECRET=12345" > test.env
-          cat test.env > /dev/null
-
-          wait || true
+          # Run for 10s, trigger some execs
+          (sudo timeout 10s python3 exec_probe.py &) 
+          sleep 2
+          ls /bin >/dev/null
+          echo "done"
