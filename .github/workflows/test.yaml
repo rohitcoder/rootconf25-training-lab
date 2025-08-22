@@ -20,28 +20,33 @@ jobs:
 
       - name: Run eBPF Python script
         run: |
-          cat > trace_connect.py <<'EOF'
+          cat > abc.py <<'EOF'
           from bcc import BPF
-
-          bpf_code = """
+          bpf_program = """
           #include <uapi/linux/ptrace.h>
           #include <linux/sched.h>
-          #include <linux/net.h>
-
-          int trace_connect(struct pt_regs *ctx) {
-              u32 pid = bpf_get_current_pid_tgid() >> 32;
+          
+          TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
+              char fname[256];
               char comm[16];
+              u32 pid = bpf_get_current_pid_tgid() >> 32;
+          
               bpf_get_current_comm(&comm, sizeof(comm));
-
-              bpf_trace_printk("CONNECT: PID %d (%s) is making outbound connection\\n", pid, comm);
+              bpf_probe_read_user_str(&fname, sizeof(fname), (void *)args->filename);
+          
+              bpf_trace_printk("[ALERT] Exec : %s (PID %d)\\n", fname, pid);
+          
               return 0;
           }
           """
-
-          b = BPF(text=bpf_code)
-          b.attach_kprobe(event="__x64_sys_connect", fn_name="trace_connect")
-          print("Tracing connect... Ctrl+C to exit.")
-          b.trace_print()
+          
+          b = BPF(text=bpf_program)
+          print("🚀 Tracing execve (process executions from /tmp)... (Ctrl+C to stop)")
+          
+          try:
+              b.trace_print()
+          except KeyboardInterrupt:
+              print("\n🛑 Stopped tracing.")
           EOF
 
-          sudo python3 trace_connect.py
+          sudo python3 abc.py
