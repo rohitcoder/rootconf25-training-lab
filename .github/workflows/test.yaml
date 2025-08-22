@@ -52,8 +52,7 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0 && endswith_env(fname)) {
-                  bpf_trace_printk("[.env READ] Process: %s\\n", comm);
-                  bpf_trace_printk("             File: %s\\n", fname);
+                  bpf_trace_printk("[.env READ] Process: %s File: %s\\n", comm, fname);
               }
               return 0;
           }
@@ -66,8 +65,7 @@ jobs:
               int ret = bpf_probe_read_user_str(&fname, sizeof(fname), args->filename);
 
               if (ret > 0 && endswith_env(fname)) {
-                  bpf_trace_printk("[.env READ] Process: %s\\n", comm);
-                  bpf_trace_printk("             File: %s\\n", fname);
+                  bpf_trace_printk("[.env READ] Process: %s File: %s\\n", comm, fname);
               }
               return 0;
           }
@@ -78,12 +76,15 @@ jobs:
           print("🚀 Tracing ONLY .env file opens (openat & openat2 tracepoints)...")
 
           try:
-              b.trace_print()
+              # print events to stdout so GitHub Actions captures them
+              while True:
+                  (task, pid, cpu, flags, ts, msg) = b.trace_fields()
+                  print(f"{ts}: {msg}")
           except KeyboardInterrupt:
-              print("\\n🛑 Stopped tracing.")
+              print("🛑 Stopped tracing.")
           EOF
 
-          # Run probe in background for 15s
+          # Run probe in foreground for 15s so logs are visible
           sudo timeout 15s python3 env_probe.py &
 
           # Give probe a moment to attach
@@ -93,5 +94,4 @@ jobs:
           echo "SECRET=12345" > test.env
           cat test.env > /dev/null
 
-          # Wait for background process
           wait || true
