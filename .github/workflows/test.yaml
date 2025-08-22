@@ -73,7 +73,8 @@ jobs:
           }
           """
 
-          b = BPF(text=bpf_code)
+          b = BPF(text=bpf_code, cflags=["-Wno-duplicate-decl-specifier"])
+
           print("🚀 Tracing ONLY .env file opens (openat & openat2 tracepoints)...")
 
           try:
